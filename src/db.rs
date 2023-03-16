@@ -5,7 +5,7 @@ use tokio_pg_mapper::FromTokioPostgresRow;
 
 pub async fn get_todos(client: &Client) -> Result<Vec<TodoList>, io::Error> {
     let statement = client
-        .prepare("select * from todo_list order by id desc")
+        .prepare("select * from todo_list order by id desc limit 10")
         .await
         .unwrap();
 
@@ -55,4 +55,21 @@ pub async fn create_todo(client: &Client, title: String) -> Result<TodoList, io:
             io::ErrorKind::Other,
             "Error creating todo list",
         ))
+}
+
+pub async fn check_item(client: &Client, list_id: i32, item_id: i32) -> Result<(), io::Error> {
+    let statement = client
+        .prepare("update todo_item set checked=true where list_id=$1 and id=$2 and checked=false")
+        .await
+        .unwrap();
+
+    let result = client
+        .execute(&statement, &[&list_id, &item_id])
+        .await
+        .expect("Error checking todo_item");
+
+    match result {
+        ref updated if *updated == 1 => Ok(()),
+        _ => Err(io::Error::new(io::ErrorKind::Other, "Failed to check list")),
+    }
 }
